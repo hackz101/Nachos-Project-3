@@ -19,6 +19,7 @@
 #include "system.h"
 #include "addrspace.h"
 #include "noff.h"
+#include "bitmap.h"
 #ifdef HOST_SPARC
 #include <strings.h>
 #endif
@@ -30,6 +31,10 @@
 //	endian machine, and we're now running on a big endian machine.
 //----------------------------------------------------------------------
 // taslk
+
+//CREATE BITMAP OF FREE PAGES
+BitMap * availPages = new BitMap(NumPhysPages);
+
 static void 
 SwapHeader (NoffHeader *noffH)
 {
@@ -85,37 +90,71 @@ AddrSpace::AddrSpace(OpenFile *executable)
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
-// first, set up the translation 
-    pageTable = new TranslationEntry[numPages];
-    for (i = 0; i < numPages; i++) {
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
-	pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
-    }
-    
-// zero out the entire address space, to zero the unitialized data segment 
-// and the stack segment
-    bzero(machine->mainMemory, size);
 
-// then, copy in the code and data segments into memory
-    if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-			noffH.code.virtualAddr, noffH.code.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
-			noffH.code.size, noffH.code.inFileAddr);
-    }
-    if (noffH.initData.size > 0) {
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-			noffH.initData.virtualAddr, noffH.initData.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-			noffH.initData.size, noffH.initData.inFileAddr);
-    }
+//CHECK IF THERE IS EVEN ENOUGH FREE PAGES
+int freepagecount = 0;
+bool enoughspace = false;
+for (int j = 0; j < NumPhysPages; j++) {
+	if (!availPages->Test(j)) {
+		freepagecount++;
+	}
+}
+printf("free page count: %d", freepagecount);
+printf("numPages: %d", numPages);
+if (freepagecount >= numPages) {
+	enoughspace = true;
+}
 
+if (enoughspace == true) {
+	int firstfreeindex = 0;
+	// first, set up the translation 
+		pageTable = new TranslationEntry[numPages];
+		for (i = 0; i < numPages; i++) {
+		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+		//find free page
+		for (int j = NumPhysPages; j > 0; j--) {
+			if (!availPages->Test(j-1)) {
+				firstfreeindex = j-1;
+			}
+		}
+		//--end find free page
+		pageTable[i].physicalPage = firstfreeindex;
+		pageTable[i].valid = TRUE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+						// a separate page, we could set its 
+						// pages to be read-only
+		}
+		
+	// zero out the entire address space, to zero the unitialized data segment 
+	// and the stack segment
+		//bzero(machine->mainMemory, size);
+		
+		//ZERO OUT REQUIRED PAGES
+		//machine->mainMemory[PageSize * firstfreeindex] = "c";
+		printf("memory says: %s", machine->mainMemory[PageSize * firstfreeindex]);
+		bzero(machine->mainMemory + PageSize * firstfreeindex, PageSize);
+		printf("memory says: %s", machine->mainMemory[PageSize * firstfreeindex]);
+
+/*
+
+	// then, copy in the code and data segments into memory
+		if (noffH.code.size > 0) {
+		    DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+				noffH.code.virtualAddr, noffH.code.size);
+		    executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
+				noffH.code.size, noffH.code.inFileAddr);
+		}
+		if (noffH.initData.size > 0) {
+		    DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+				noffH.initData.virtualAddr, noffH.initData.size);
+		    executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
+				noffH.initData.size, noffH.initData.inFileAddr);
+		}*/
+	} else {
+		printf("Not enough physical pages available for user program page allocation");
+	}
 }
 
 //----------------------------------------------------------------------
