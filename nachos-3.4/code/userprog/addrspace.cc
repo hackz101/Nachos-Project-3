@@ -99,8 +99,8 @@ for (int j = 0; j < NumPhysPages; j++) {
 		freepagecount++;
 	}
 }
-printf("free page count: %d", freepagecount);
-printf("numPages: %d", numPages);
+printf("free page count: %d\n", freepagecount);
+printf("numPages: %d\n", numPages);
 if (freepagecount >= numPages) {
 	enoughspace = true;
 }
@@ -119,6 +119,9 @@ if (enoughspace == true) {
 		}
 		//--end find free page
 		pageTable[i].physicalPage = firstfreeindex;
+		//mark page in use
+		availPages->Mark(firstfreeindex);
+		//--end mark page in use
 		pageTable[i].valid = TRUE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
@@ -127,23 +130,26 @@ if (enoughspace == true) {
 						// pages to be read-only
 		}
 		
-	// zero out the entire address space, to zero the unitialized data segment 
-	// and the stack segment
-		//bzero(machine->mainMemory, size);
-		
 		//ZERO OUT REQUIRED PAGES
-		//machine->mainMemory[PageSize * firstfreeindex] = "c";
-		printf("memory says: %s", machine->mainMemory[PageSize * firstfreeindex]);
-		bzero(machine->mainMemory + PageSize * firstfreeindex, PageSize);
-		printf("memory says: %s", machine->mainMemory[PageSize * firstfreeindex]);
+		char ** memSeg; 
+		for (int j = 0; j < numPages; j++) {
+			memSeg = &machine->mainMemory;
+			**memSeg = *machine->mainMemory + PageSize * pageTable[j].physicalPage;
+			bzero(*memSeg, PageSize);
 
-/*
+			//*memSeg = &machine->mainMemory[PageSize * pageTable[j].physicalPage];
+			//bzero(*memSeg, PageSize);
+		}
+		
+		
+
+
 
 	// then, copy in the code and data segments into memory
 		if (noffH.code.size > 0) {
 		    DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
 				noffH.code.virtualAddr, noffH.code.size);
-		    executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
+		    executable->ReadAt(&(machine->mainMemory[pageTable[noffH.code.virtualAddr].physicalPage]),
 				noffH.code.size, noffH.code.inFileAddr);
 		}
 		if (noffH.initData.size > 0) {
@@ -151,7 +157,7 @@ if (enoughspace == true) {
 				noffH.initData.virtualAddr, noffH.initData.size);
 		    executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
 				noffH.initData.size, noffH.initData.inFileAddr);
-		}*/
+		}
 	} else {
 		printf("Not enough physical pages available for user program page allocation");
 	}
