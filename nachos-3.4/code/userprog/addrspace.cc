@@ -20,6 +20,7 @@
 #include "addrspace.h"
 #include "noff.h"
 #include "bitmap.h"
+#include <cmath>
 #ifdef HOST_SPARC
 #include <strings.h>
 #endif
@@ -106,22 +107,16 @@ if (freepagecount >= numPages) {
 }
 
 if (enoughspace == true) {
+
 	int firstfreeindex = 0;
 	// first, set up the translation 
 		pageTable = new TranslationEntry[numPages];
 		for (i = 0; i < numPages; i++) {
 		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
 		//find free page
-		for (int j = NumPhysPages; j > 0; j--) {
-			if (!availPages->Test(j-1)) {
-				firstfreeindex = j-1;
-			}
-		}
+		firstfreeindex = availPages->Find();
 		//--end find free page
 		pageTable[i].physicalPage = firstfreeindex;
-		//mark page in use
-		availPages->Mark(firstfreeindex);
-		//--end mark page in use
 		pageTable[i].valid = TRUE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
@@ -141,23 +136,29 @@ if (enoughspace == true) {
 			//bzero(*memSeg, PageSize);
 		}
 		
-		
+		//INFO NEEDED FOR LOADING INTO MEM
+		int codePagesNeeded = ceil(noffH.code.size/PageSize);
+		int dataPagesNeeded = ceil(noffH.initData.size/PageSize);
 
-
-
-	// then, copy in the code and data segments into memory
+		//LOAD INTO MEM
 		if (noffH.code.size > 0) {
-		    DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+			DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
 				noffH.code.virtualAddr, noffH.code.size);
-		    executable->ReadAt(&(machine->mainMemory[pageTable[noffH.code.virtualAddr].physicalPage]),
-				noffH.code.size, noffH.code.inFileAddr);
+			for (int j = 0; j < codePagesNeeded; j++) {
+				executable->ReadAt(&(machine->mainMemory[pageTable[noffH.code.virtualAddr + j].physicalPage]),
+				PageSize, noffH.code.inFileAddr);
+			}
 		}
+
 		if (noffH.initData.size > 0) {
-		    DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+			DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
 				noffH.initData.virtualAddr, noffH.initData.size);
-		    executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-				noffH.initData.size, noffH.initData.inFileAddr);
+			for (int j = 0; j < dataPagesNeeded; j++) {
+				executable->ReadAt(&(machine->mainMemory[pageTable[noffH.initData.virtualAddr + j].physicalPage]),
+				PageSize, noffH.initData.inFileAddr);
+			}
 		}
+
 	} else {
 		printf("Not enough physical pages available for user program page allocation");
 	}
