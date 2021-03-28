@@ -32,6 +32,9 @@ extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 extern int threadChoice;
 
+//CREATE BITMAP OF FREE PAGES
+extern BitMap * availPages;
+
 #ifdef USER_PROGRAM
 #include "machine.h"
 extern Machine* machine;	// user program memory and registers

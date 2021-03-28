@@ -190,7 +190,6 @@ ExceptionHandler(ExceptionType which)
 					break;
 				}
 				delete filename;
-
 				// Calculate needed memory space
 				AddrSpace *space;
 				space = new AddrSpace(executable);
@@ -329,6 +328,12 @@ ExceptionHandler(ExceptionType which)
 		//      ASSERT(FALSE);
 		//      SExit(1);
 		break;
+	case PageFaultException :
+		printf("page fault");
+		int badVAddr = machine->ReadRegister(BadVAddrReg);
+		int badVPage = badVAddr/PageSize;
+		availPages->Find();
+		printf("%d",availPages->Find());
 	}
 	delete [] ch;
 }

@@ -37,6 +37,7 @@ SynchDisk   *synchDisk;
 PostOffice *postOffice;
 #endif
 
+availPages = new BitMap(NumPhysPages);
 
 // External definition, to allow us to take a pointer to this function
 extern void Cleanup();
